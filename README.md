@@ -1,18 +1,24 @@
-Cognitive Fatigue Detector
+# Cognitive Fatigue Detector
 
 A lightweight Chrome Extension research prototype that explores whether mouse efficiency can serve as a non-intrusive indicator of cognitive fatigue during computer-based work.
 
 
-Research Motivation
+
+## Research Motivation
 
 Many productivity tools only track time, app focus, or active vs. idle behavior. This project focuses on interaction quality—specifically, how efficiently a user moves the mouse between intentional actions—because prior HCI research suggests that under higher cognitive load, cursor paths become less direct.
 
-Core question:
+
+
+## Core question:
 
 Can mouse efficiency serve as a non-intrusive indicator of cognitive fatigue during computer-based work?
 
-What This Prototype Does
-1) Mouse Efficiency Metric (passive, continuous)
+## What This Prototype Does
+
+
+
+### 1. Mouse Efficiency Metric (passive, continuous)
 
 Between two consecutive clicks, the extension computes:
 
@@ -24,7 +30,9 @@ Lower values indicate more wandering / indirect movement.
 
 The content script listens to mousemove and click events and sends per-segment efficiency to the background worker.
 
-2) Baseline → Sliding Window Comparison
+
+
+### 2. Baseline → Sliding Window Comparison
 
 A session begins by collecting a baseline from the first N click-to-click segments:
 
@@ -38,7 +46,9 @@ A fatigue flag triggers when the window average drops enough relative to baselin
 
 RED_DROP = 0.50 → red if efficiency drops by ≥ 50% vs baseline
 
-3) Reaction Test as a “Verification Step”
+
+
+### 3. Reaction Test as a “Verification Step”
 
 If fatigue is flagged, the popup prompts a 3-trial reaction test (median result). The first time you run it in a session, it sets an RT baseline. Later tests compare against it:
 
@@ -48,7 +58,7 @@ This is intentionally simple: it’s a second measure to reduce false alarms and
 
 
 
-Install (Unpacked Extension)
+## Install (Unpacked Extension)
 
 Clone or download this repository.
 
@@ -61,7 +71,8 @@ Click Load unpacked and select this project folder.
 Pin the extension (optional) for easier access.
 
 
-How To Use
+
+## How To Use
 
 Click the extension icon to open the popup.
 
@@ -132,8 +143,7 @@ Threshold sensitivity (how different RED_DROP, WINDOW_MS, BASELINE_N affect fals
 
 
 
-
-Ethics, Privacy, and Safety
+## Ethics, Privacy, and Safety
 
 This prototype only measures mouse movement and click geometry (distances), not page content.
 
@@ -143,10 +153,7 @@ Data is stored locally via chrome.storage.local for the session state.
 
 
 
-
-
-
-Known Limitations
+## Known Limitations
 
 Efficiency is computed only between clicks; tasks with few clicks may produce sparse data.
 
@@ -157,7 +164,8 @@ Single baseline per session may be sensitive to early-session behavior.
 Popup-based reaction test is minimal and may be affected by popup focus/context.
 
 
-Roadmap (Future Work Ideas)
+
+## Roadmap (Future Work Ideas)
 
 Calibrate baseline continuously (e.g., rolling baseline or adaptive baseline)
 
