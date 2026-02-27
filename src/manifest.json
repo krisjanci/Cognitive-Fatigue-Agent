@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Cognitive Fatigue MVP (Mouse Efficiency + Reaction Test)",
+    "version": "1.0.0",
+    "description": "Chrome extension MVP: detects potential cognitive fatigue via mouse efficiency and verifies with a reaction-time test.",
+    "permissions": ["storage"],
+    "host_permissions": ["<all_urls>"],
+    "action": {
+      "default_title": "Fatigue MVP",
+      "default_popup": "popup.html"
+    },
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }
+    ]
+  }
+  

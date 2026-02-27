@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fatigue MVP</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        width: 320px;
+        margin: 0;
+        padding: 12px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 8px 0;
+      }
+      .status {
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 10px;
+        margin-top: 10px;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .btn-start { background: #22c55e; }
+      .btn-stop { background: #ef4444; }
+      .btn-test { background: #3b82f6; margin-top: 8px; }
+      .muted { color: #666; font-size: 12px; }
+      .small { font-size: 12px; }
+      code { font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <div><strong>Fatigue MVP</strong></div>
+      <div id="status" class="status">OFF</div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>Session</div>
+        <div id="sessionOn">OFF</div>
+      </div>
+      <div class="row">
+        <div>Elapsed</div>
+        <div id="elapsed">0:00</div>
+      </div>
+      <div class="row small">
+        <div>Baseline eff</div>
+        <div id="baselineEff">—</div>
+      </div>
+      <div class="row small">
+        <div>5-min eff</div>
+        <div id="windowEff">—</div>
+      </div>
+      <div class="muted" id="reason"></div>
+    </div>
+
+    <div class="card" id="fatigueCard" style="display:none;">
+      <div><strong>Cognitive fatigue detected</strong></div>
+      <div class="muted" style="margin-top:6px;">
+        Reduced mouse efficiency may reflect degraded motor-cognitive control (less direct cursor paths).
+      </div>
+      <button id="btnTest" class="btn-test">Take Reaction Test</button>
+    </div>
+
+    <div class="card" id="rtCard" style="display:none;">
+      <div><strong>Reaction Test</strong></div>
+      <div class="small" id="rtInfo" style="margin-top:6px;"></div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <button id="btnToggle" class="btn-start">Start Session</button>
+      <div class="muted" style="margin-top:8px;">
+        MVP scope: academic reading/writing in Chrome.
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
