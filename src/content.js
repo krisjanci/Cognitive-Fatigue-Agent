@@ -1,65 +1,51 @@
-// content.js — tracks cursor movement and clicks to build efficiency segments.
-// Efficiency segment is computed per pair of consecutive clicks:
-//   direct = distance(click_i, click_{i-1})
-//   actual = total cursor path length between those clicks
-//   eff = direct / actual
+// content.js
+// Tracks click-to-click mouse efficiency and sends timestamped segments to background.
 
 let lastMove = null;
 let lastClick = null;
-let pathSinceLastClick = 0;
+let path = 0;
 
 function dist(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.hypot(dx, dy);
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function safeSendSegment(segment) {
-  chrome.runtime.sendMessage({ type: "MOUSE_SEGMENT", segment }).catch(() => {
-    // ignore if extension context is temporarily unavailable
-  });
-}
+addEventListener("mousemove", (e) => {
+  const p = { x: e.clientX, y: e.clientY };
 
-window.addEventListener(
-  "mousemove",
-  (e) => {
-    const p = { x: e.clientX, y: e.clientY, t: Date.now() };
-    if (lastMove) {
-      const d = dist(p, lastMove);
-      // ignore insane jumps (multi-monitor / teleports)
-      if (Number.isFinite(d) && d < 2000) pathSinceLastClick += d;
+  if (lastMove) {
+    const d = dist(p, lastMove);
+    if (Number.isFinite(d) && d >= 0 && d < 2000) {
+      path += d;
     }
-    lastMove = p;
-  },
-  { passive: true }
-);
+  }
 
-window.addEventListener(
-  "click",
-  (e) => {
-    const click = { x: e.clientX, y: e.clientY, t: Date.now() };
+  lastMove = p;
+}, { passive: true });
 
-    if (lastClick) {
-      const direct = dist(click, lastClick);
-      const actual = pathSinceLastClick;
+addEventListener("click", (e) => {
+  const c = { x: e.clientX, y: e.clientY };
+  const now = Date.now();
 
-      // Avoid divide-by-zero or meaningless segments
-      if (actual > 5 && direct >= 0) {
-        const eff = direct / actual;
+  if (lastClick) {
+    const direct = dist(c, lastClick);
+    const actual = path;
 
-        safeSendSegment({
-          t: click.t,
+    if (Number.isFinite(direct) && Number.isFinite(actual) && actual > 0.5) {
+      const eff = direct / actual;
+
+      chrome.runtime.sendMessage({
+        type: "EFF_SEGMENT",
+        segment: {
+          t: now,
+          eff,
           direct,
-          actual,
-          eff
-        });
-      }
+          actual
+        }
+      }).catch(() => {});
     }
+  }
 
-    // Reset for next segment
-    lastClick = click;
-    pathSinceLastClick = 0;
-    lastMove = click;
-  },
-  { passive: true }
-);
+  lastClick = c;
+  lastMove = c;
+  path = 0;
+}, { passive: true });

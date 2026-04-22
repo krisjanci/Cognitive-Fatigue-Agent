@@ -1,93 +1,116 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Fatigue MVP</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        width: 320px;
-        margin: 0;
-        padding: 12px;
-      }
-      .row {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        margin: 8px 0;
-      }
-      .status {
-        font-weight: bold;
-        text-transform: uppercase;
-      }
-      .card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 10px;
-        margin-top: 10px;
-      }
-      button {
-        width: 100%;
-        padding: 10px;
-        border: 0;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: bold;
-      }
-      .btn-start { background: #22c55e; }
-      .btn-stop { background: #ef4444; }
-      .btn-test { background: #3b82f6; margin-top: 8px; }
-      .muted { color: #666; font-size: 12px; }
-      .small { font-size: 12px; }
-      code { font-size: 12px; }
-    </style>
-  </head>
-  <body>
-    <div class="row">
-      <div><strong>Fatigue MVP</strong></div>
-      <div id="status" class="status">OFF</div>
-    </div>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      width: 360px;
+      padding: 12px;
+      margin: 0;
+    }
 
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin: 6px 0;
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border: 0;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .start { background: #22c55e; }
+    .stop  { background: #ef4444; color: white; }
+    .test  { background: #3b82f6; color: white; }
+    .back  { background: #e5e7eb; }
+    .export { background: #111827; color: white; }
+
+    .muted {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .big {
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .stage {
+      margin-top: 10px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #eee;
+      user-select: none;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .ready { background: #f3f4f6; }
+    .wait  { background: #fde68a; }
+    .go    { background: #bbf7d0; }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="big">Fatigue Data Collector</div>
+    <div id="status" class="big">OFF</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="screenDash">
     <div class="card">
-      <div class="row">
-        <div>Session</div>
-        <div id="sessionOn">OFF</div>
-      </div>
-      <div class="row">
-        <div>Elapsed</div>
-        <div id="elapsed">0:00</div>
-      </div>
-      <div class="row small">
-        <div>Baseline eff</div>
-        <div id="baselineEff">—</div>
-      </div>
-      <div class="row small">
-        <div>5-min eff</div>
-        <div id="windowEff">—</div>
-      </div>
-      <div class="muted" id="reason"></div>
+      <div class="row"><div>Session</div><div id="on">OFF</div></div>
+      <div class="row"><div>Elapsed</div><div id="elapsed">0:00</div></div>
+      <div class="row"><div>Last 5 min efficiency</div><div id="eff5">—</div></div>
+      <div class="row"><div>Last RT mean</div><div id="rtLast">—</div></div>
+      <div class="row"><div>Saved RT checkpoints</div><div id="resultCount">0</div></div>
+      <div class="row"><div>Raw mouse segments</div><div id="rawCount">0</div></div>
+      <div class="muted" id="note"></div>
     </div>
 
-    <div class="card" id="fatigueCard" style="display:none;">
-      <div><strong>Cognitive fatigue detected</strong></div>
-      <div class="muted" style="margin-top:6px;">
-        Reduced mouse efficiency may reflect degraded motor-cognitive control (less direct cursor paths).
-      </div>
-      <button id="btnTest" class="btn-test">Take Reaction Test</button>
-    </div>
+    <button id="btnToggle" class="start">Start Session</button>
+    <button id="btnGoTest" class="test">Take Reaction Test</button>
+    <button id="btnExport" class="export">Export Results JSON</button>
+  </div>
 
-    <div class="card" id="rtCard" style="display:none;">
-      <div><strong>Reaction Test</strong></div>
-      <div class="small" id="rtInfo" style="margin-top:6px;"></div>
-    </div>
+  <!-- REACTION TEST -->
+  <div id="screenTest" class="hidden">
+    <div class="card">
+      <div class="big">Reaction Test</div>
+      <div class="muted">Click when the box turns green. 8 trials. Final result = mean.</div>
 
-    <div style="margin-top:10px;">
-      <button id="btnToggle" class="btn-start">Start Session</button>
-      <div class="muted" style="margin-top:8px;">
-        MVP scope: academic reading/writing in Chrome.
-      </div>
-    </div>
+      <div id="stage" class="stage ready">Press Start.</div>
+      <button id="btnStartTest" class="test">Start</button>
 
-    <script src="popup.js"></script>
-  </body>
+      <div id="timesOut" class="muted mono" style="margin-top:10px;"></div>
+      <div id="saveOut" class="big" style="margin-top:8px;"></div>
+
+      <button id="btnBack" class="back">Back</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
 </html>

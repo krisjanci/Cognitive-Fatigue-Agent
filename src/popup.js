@@ -1,98 +1,206 @@
 function fmtMs(ms) {
-    const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-  }
-  
-  function fmtNum(x) {
-    if (!Number.isFinite(x)) return "—";
-    return x.toFixed(3);
-  }
-  
-  function statusLabel(s) {
-    if (!s) return "OFF";
-    return s.toUpperCase();
-  }
-  
-  async function getState() {
-    return await chrome.runtime.sendMessage({ type: "GET_STATE" });
-  }
-  
-  async function startSession() {
-    return await chrome.runtime.sendMessage({ type: "START_SESSION" });
-  }
-  
-  async function stopSession() {
-    return await chrome.runtime.sendMessage({ type: "STOP_SESSION" });
-  }
-  
-  async function openTest() {
-    return await chrome.runtime.sendMessage({ type: "OPEN_TEST_PAGE" });
-  }
-  
-  function render(model) {
-    document.getElementById("status").textContent = statusLabel(model.status);
-    document.getElementById("sessionOn").textContent = model.sessionOn ? "ON" : "OFF";
-    document.getElementById("elapsed").textContent = fmtMs(model.elapsedMs || 0);
-    document.getElementById("baselineEff").textContent = fmtNum(model.baselineEff);
-    document.getElementById("windowEff").textContent = fmtNum(model.windowEff);
-    document.getElementById("reason").textContent = model.reason || "";
-  
-    const btn = document.getElementById("btnToggle");
-    btn.textContent = model.sessionOn ? "Stop Session" : "Start Session";
-    btn.className = model.sessionOn ? "btn-stop" : "btn-start";
-  
-    // Show fatigue card when yellow/red
-    const fatigueCard = document.getElementById("fatigueCard");
-    const showFatigue = model.sessionOn && (model.status === "yellow" || model.status === "red");
-    fatigueCard.style.display = showFatigue ? "block" : "none";
-  
-    // Reaction test summary
-    const rtCard = document.getElementById("rtCard");
-    const rtInfo = document.getElementById("rtInfo");
-    if (model.sessionOn && (model.baselineRT !== null || model.lastRT !== null)) {
-      rtCard.style.display = "block";
-      const baseline = model.baselineRT !== null ? `${Math.round(model.baselineRT)}ms` : "—";
-      const last = model.lastRT !== null ? `${Math.round(model.lastRT)}ms` : "—";
-      const delta = Number.isFinite(model.lastRTDeltaPct) ? `${(model.lastRTDeltaPct * 100).toFixed(0)}%` : "—";
-      const rec =
-        model.lastRecommendation === "break"
-          ? "Recommendation: TAKE A BREAK"
-          : model.lastRecommendation === "continue"
-          ? "Recommendation: CONTINUE"
-          : "Recommendation: —";
-      rtInfo.textContent = `Baseline: ${baseline} | Last: ${last} | Δ: ${delta} | ${rec}`;
-    } else {
-      rtCard.style.display = "none";
-      rtInfo.textContent = "";
-    }
-  }
-  
-  async function refresh() {
-    const res = await getState();
-    if (!res.ok) return;
-    render(res.model);
-  }
-  
-  document.getElementById("btnToggle").addEventListener("click", async () => {
-    const res = await getState();
-    if (!res.ok) return;
-  
-    if (!res.model.sessionOn) {
-      const started = await startSession();
-      if (started.ok) render(started.model);
-    } else {
-      const stopped = await stopSession();
-      if (stopped.ok) render(stopped.model);
-    }
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function fmtNum(x, digits = 3) {
+  return Number.isFinite(x) ? x.toFixed(digits) : "—";
+}
+
+async function sendMessage(msg) {
+  return await chrome.runtime.sendMessage(msg);
+}
+
+function showDash() {
+  document.getElementById("screenDash").classList.remove("hidden");
+  document.getElementById("screenTest").classList.add("hidden");
+}
+
+function showTest() {
+  document.getElementById("screenDash").classList.add("hidden");
+  document.getElementById("screenTest").classList.remove("hidden");
+}
+
+function render(m) {
+  document.getElementById("status").textContent = m.on ? "ON" : "OFF";
+  document.getElementById("on").textContent = m.on ? "ON" : "OFF";
+  document.getElementById("elapsed").textContent = fmtMs(m.elapsedMs);
+  document.getElementById("eff5").textContent = fmtNum(m.last5MinEfficiency);
+  document.getElementById("rtLast").textContent =
+    Number.isFinite(m.lastReactionTimeMean) ? `${Math.round(m.lastReactionTimeMean)} ms` : "—";
+  document.getElementById("resultCount").textContent = String(m.resultCount ?? 0);
+  document.getElementById("rawCount").textContent = String(m.rawSegmentCount ?? 0);
+  document.getElementById("note").textContent =
+    "Exports raw mouse segments, 5-minute efficiency values, reaction-test means, and every individual reaction-time trial.";
+
+  const btn = document.getElementById("btnToggle");
+  btn.textContent = m.on ? "Stop Session" : "Start Session";
+  btn.className = m.on ? "stop" : "start";
+}
+
+async function refresh() {
+  const res = await sendMessage({ type: "STATE" });
+  if (res?.ok) render(res.model);
+}
+
+document.getElementById("btnToggle").addEventListener("click", async () => {
+  const state = await sendMessage({ type: "STATE" });
+  if (!state?.ok) return;
+
+  const res = state.model.on
+    ? await sendMessage({ type: "STOP" })
+    : await sendMessage({ type: "START" });
+
+  if (res?.ok) render(res.model);
+});
+
+document.getElementById("btnGoTest").addEventListener("click", () => {
+  resetTestUI();
+  showTest();
+});
+
+document.getElementById("btnBack").addEventListener("click", () => {
+  showDash();
+});
+
+document.getElementById("btnExport").addEventListener("click", async () => {
+  const res = await sendMessage({ type: "EXPORT_RESULTS" });
+  if (!res?.ok) return;
+
+  const blob = new Blob([JSON.stringify(res.exportData, null, 2)], {
+    type: "application/json"
   });
-  
-  document.getElementById("btnTest").addEventListener("click", async () => {
-    await openTest();
+
+  const url = URL.createObjectURL(blob);
+  chrome.downloads.download({
+    url,
+    filename: `fatigue_results_${Date.now()}.json`,
+    saveAs: true
   });
-  
-  // Refresh on open and every second (nice UX)
-  refresh();
-  setInterval(refresh, 1000);
-  
+});
+
+/* ---------------- Reaction test ---------------- */
+
+const TRIALS = 8;
+const MIN_WAIT = 1000;
+const MAX_WAIT = 2500;
+
+const stage = document.getElementById("stage");
+const btnStartTest = document.getElementById("btnStartTest");
+const timesOut = document.getElementById("timesOut");
+const saveOut = document.getElementById("saveOut");
+
+let trial = 0;
+let times = [];
+let waiting = false;
+let goTime = null;
+let timer = null;
+
+function rand(a, b) {
+  return Math.floor(a + Math.random() * (b - a + 1));
+}
+
+function mean(arr) {
+  if (!arr.length) return null;
+  const sum = arr.reduce((acc, x) => acc + x, 0);
+  return sum / arr.length;
+}
+
+function setStage(text, cls) {
+  stage.className = `stage ${cls}`;
+  stage.textContent = text;
+}
+
+function resetTestUI() {
+  trial = 0;
+  times = [];
+  waiting = false;
+  goTime = null;
+
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+
+  timesOut.textContent = "";
+  saveOut.textContent = "";
+  btnStartTest.disabled = false;
+  btnStartTest.textContent = "Start";
+  setStage("Press Start.", "ready");
+}
+
+function startTrial() {
+  waiting = true;
+  goTime = null;
+  setStage(`Trial ${trial + 1}/${TRIALS}: wait for green...`, "wait");
+
+  timer = setTimeout(() => {
+    waiting = false;
+    goTime = performance.now();
+    setStage("CLICK NOW!", "go");
+  }, rand(MIN_WAIT, MAX_WAIT));
+}
+
+btnStartTest.addEventListener("click", () => {
+  resetTestUI();
+  btnStartTest.disabled = true;
+  btnStartTest.textContent = "Running...";
+  setStage("Get ready...", "ready");
+  setTimeout(startTrial, 400);
+});
+
+stage.addEventListener("click", async () => {
+  if (waiting) {
+    if (timer) clearTimeout(timer);
+    btnStartTest.disabled = false;
+    btnStartTest.textContent = "Start";
+    setStage("Too early. Press Start again.", "ready");
+    return;
+  }
+
+  if (goTime === null) return;
+
+  const rt = performance.now() - goTime;
+  times.push(rt);
+  trial++;
+
+  if (trial >= TRIALS) {
+    const rtMean = mean(times);
+
+    timesOut.textContent =
+      `Times: ${times.map(x => Math.round(x)).join(" ms, ")} ms | Mean: ${Math.round(rtMean)} ms`;
+
+    const res = await sendMessage({
+      type: "SAVE_RT",
+      rtMeanMs: rtMean,
+      rtTrialsMs: times.map(x => Math.round(x))
+    });
+
+    if (res?.ok) {
+      const effText = Number.isFinite(res.entry.efficiency5m)
+        ? res.entry.efficiency5m.toFixed(3)
+        : "—";
+
+      saveOut.textContent =
+        `Saved → RT mean: ${Math.round(res.entry.reactionTimeMeanMs)} ms | Efficiency(5m): ${effText}`;
+    } else {
+      saveOut.textContent = `Error: ${res?.error || "Could not save result"}`;
+    }
+
+    btnStartTest.disabled = false;
+    btnStartTest.textContent = "Run Again";
+    setStage("Done. Click Back to return.", "ready");
+    refresh();
+    return;
+  }
+
+  setStage(`Recorded ${Math.round(rt)} ms. Next...`, "ready");
+  setTimeout(startTrial, 600);
+});
+
+/* ---------------- Start ---------------- */
+
+showDash();
+refresh();
+setInterval(refresh, 1000);
