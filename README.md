@@ -2,177 +2,128 @@
 
 A lightweight Chrome Extension research prototype that explores whether mouse efficiency can serve as a non-intrusive indicator of cognitive fatigue during computer-based work.
 
-
-
 ## Research Motivation
 
 Many productivity tools only track time, app focus, or active vs. idle behavior. This project focuses on interaction quality—specifically, how efficiently a user moves the mouse between intentional actions—because prior HCI research suggests that under higher cognitive load, cursor paths become less direct.
 
-
-
-## Core question:
-
-Can mouse efficiency serve as a non-intrusive indicator of cognitive fatigue during computer-based work?
+**Core question:** Can mouse efficiency serve as a non-intrusive indicator of cognitive fatigue during computer-based work?
 
 ## What This Prototype Does
 
-
-
-### 1. Mouse Efficiency Metric (passive, continuous)
+### 1. Mouse Efficiency Metric (Passive, Continuous)
 
 Between two consecutive clicks, the extension computes:
 
-Mouse Efficiency = (straight-line distance between clicks) / (total mouse path length traveled between clicks)
+```
+Mouse Efficiency = (straight-line distance) / (total path length)
+```
 
-A value closer to 1.0 means movement was direct.
+- **~1.0**: Direct movement
+- **Lower values**: More wandering/indirect movement
 
-Lower values indicate more wandering / indirect movement.
+The content script listens to `mousemove` and `click` events and sends per-segment efficiency data to the background worker.
 
-The content script listens to mousemove and click events and sends per-segment efficiency to the background worker.
+### 2. Rolling 5-Minute Efficiency Tracking
 
+The extension continuously computes mouse efficiency using only the most recent interaction data from the last 5 minutes.
 
+Tracked values:
+- Last 5-minute efficiency
+- Session elapsed time
+- Total raw mouse segments collected
 
-### 2. Baseline → Sliding Window Comparison
+### 3. Reaction Test as a Verification Step
 
-A session begins by collecting a baseline from the first N click-to-click segments:
+The popup includes a built-in reaction-time test:
 
-BASELINE_N = 8 segments (demo-friendly)
+- 8 trials with random delays
+- Click when the box turns green
+- Mean reaction time calculated
+- All individual trial times saved
 
-Then it computes a moving average efficiency over a recent window:
+### 4. Export Full Dataset
 
-WINDOW_MS = 20,000 (20 seconds, demo-friendly)
+Export all results as JSON, including:
+- Session metadata
+- Raw mouse movement segments
+- Saved reaction-time checkpoints
+- Efficiency values linked to reaction tests
 
-A fatigue flag triggers when the window average drops enough relative to baseline:
+## Installation (Unpacked Extension)
 
-RED_DROP = 0.50 → red if efficiency drops by ≥ 50% vs baseline
-
-
-
-### 3. Reaction Test as a “Verification Step”
-
-If fatigue is flagged, the popup prompts a 3-trial reaction test (median result). The first time you run it in a session, it sets an RT baseline. Later tests compare against it:
-
-RT_DROP = 0.20 → recommend a break if RT is ≥ 20% slower than baseline
-
-This is intentionally simple: it’s a second measure to reduce false alarms and support experimental evaluation.
-
-
-
-## Install (Unpacked Extension)
-
-Clone or download this repository.
-
-Open Chrome and go to: chrome://extensions
-
-Enable Developer mode (top-right).
-
-Click Load unpacked and select this project folder.
-
-Pin the extension (optional) for easier access.
-
-
+1. Clone or download this repository
+2. Go to `chrome://extensions` in Chrome
+3. Enable **Developer mode** (top-right)
+4. Click **Load unpacked** and select this project folder
+5. Pin the extension (optional)
 
 ## How To Use
 
-Click the extension icon to open the popup.
+1. Click the extension icon to open the popup
+2. Click **Start Session**
+3. Browse normally and perform real work inside Chrome
+4. Click **Take Reaction Test** whenever desired
+5. Complete 8 trials (result saves automatically)
+6. Click **Export Results JSON** when finished
 
-Click Start Session.
+## Implementation Summary
 
-Browse normally and generate a few click-to-click segments until baseline forms.
+### Efficiency Capture (content.js)
+- Accumulates mouse path length on `mousemove`
+- Resets on each `click`
+- Computes: `efficiency = directDistance / accumulatedPath`
+- Sends segment data to background script
 
-Watch Baseline eff and Window eff update.
+### State & Storage (bg.js)
+- Stores session state in `chrome.storage.local`
+- Stores all raw mouse segments
+- Computes rolling 5-minute efficiency
+- Stores reaction-time checkpoints
+- Builds exportable JSON dataset
 
-If a large drop is detected, the status becomes red and the popup shows Fatigue detected.
+### UI (popup.html + popup.js)
 
-Click Take Reaction Test:
+**Dashboard displays:**
+- Session status
+- Elapsed time
+- 5-minute efficiency
+- Last reaction-time mean
+- Saved checkpoint count
+- Raw segment count
 
-3 trials
+**Reaction Test:**
+- Randomized delay
+- Click-on-green measurement
+- 8 trials
+- Mean result saved automatically
 
-result is median
+## Evaluation Plan
 
-first run sets RT baseline
-
-later runs recommend CONTINUE or BREAK
-
-How It Works (Implementation Summary)
-Efficiency capture (content.js)
-
-Accumulates mouse path length (mousemove)
-
-Resets on each click
-
-On each click after the first, computes:
-
-direct = distance(currentClick, lastClick)
-
-actual = accumulatedPath
-
-eff = direct / actual
-
-Sends { type: "EFF", eff } to background.
-
-State + detection (bg.js)
-
-Stores session state in chrome.storage.local
-
-Computes baseline average from first BASELINE_N segments
-
-Computes sliding window average from the last WINDOW_MS
-
-Flags fatigue when window avg drops by RED_DROP vs baseline
-
-Stores reaction-time baseline + last result and computes recommendation.
-
-UI (popup.html + popup.js)
-
-Dashboard: session status, elapsed time, baseline/window efficiency, reason string
-
-Reaction Test: randomized delay, click-on-green measurement, median of 3, sends RT back
-
-Evaluation Plan (for the report / experiments)
-
-This prototype is meant to support experiments such as:
-
-Controlled workload blocks (e.g., easy vs. hard tasks you personally perform)
-
-Time-on-task trends (efficiency drift over long work sessions)
-
-Correlation between efficiency drops and RT slowdowns
-
-Threshold sensitivity (how different RED_DROP, WINDOW_MS, BASELINE_N affect false positives)
-
-
+This prototype supports experiments such as:
+- Controlled workload blocks (easy vs. hard tasks)
+- Time-on-task trends over long sessions
+- Correlation between efficiency and reaction time
+- Repeated within-subject testing
+- Statistical analysis in Python or R
 
 ## Ethics, Privacy, and Safety
 
-This prototype only measures mouse movement and click geometry (distances), not page content.
-
-No keystrokes are captured.
-
-Data is stored locally via chrome.storage.local for the session state.
-
-
+- Only measures mouse movement and click geometry
+- No keystrokes captured
+- No cloud upload required
+- Data stored locally via `chrome.storage.local`
 
 ## Known Limitations
 
-Efficiency is computed only between clicks; tasks with few clicks may produce sparse data.
-
-Different sites and workflows cause different “normal” efficiency ranges.
-
-Single baseline per session may be sensitive to early-session behavior.
-
-Popup-based reaction test is minimal and may be affected by popup focus/context.
-
-
+- Efficiency computed only between clicks (sparse data for low-click tasks)
+- Different sites and workflows have different normal efficiency ranges
+- Mouse efficiency alone may not always indicate fatigue
+- Popup-based reaction tests may be influenced by context or focus
 
 ## Roadmap (Future Work Ideas)
 
-Calibrate baseline continuously (e.g., rolling baseline or adaptive baseline)
-
-More robust features (pause time, speed, curvature, jerk, click cadence)
-
-Per-site baselines
-
-Better UI feedback (trend charts, confidence, false-positive reduction)
-
-Export anonymized summary metrics for analysis scripts
+- Adaptive personal baselines
+- Keyboard behavior metrics (pause time, speed, curvature, click cadence)
+- Better UI feedback and charts
+- Machine learning models
+- Desktop-wide tracking beyond Chrome
